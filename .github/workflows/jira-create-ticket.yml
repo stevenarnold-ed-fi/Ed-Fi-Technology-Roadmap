@@ -82,13 +82,10 @@ jobs:
             .[$label].assignee // empty
           ')
 
-          # Sprint is looked up by label if sprints map is present in config
-          SPRINT=$(echo "$LABELS" | jq -r \
-            --argjson config "$PROJECT_CONFIG" \
-            --arg label "$PROJECT_LABEL" '
-            ($config[$label].sprints // {}) as $map |
-            .[] | .name as $l | $map[$l] // empty
-          ' | head -1)
+          # Sprint is set directly from project config if present
+          SPRINT=$(echo "$PROJECT_CONFIG" | jq -r --arg label "$PROJECT_LABEL" '
+            .[$label].sprint // empty
+          ')
 
           echo "project=$PROJECT"          >> "$GITHUB_OUTPUT"
           echo "issue_type=${TYPE:-Story}" >> "$GITHUB_OUTPUT"
