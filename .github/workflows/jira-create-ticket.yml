@@ -231,10 +231,13 @@ jobs:
               projectV2 = userResult.user.projectV2;
             }
 
+            const availableFields = projectV2.fields.nodes.filter(f => f.name).map(f => f.name);
+            console.log(`Available project fields: ${availableFields.join(', ')}`);
+
             const jiraField = projectV2.fields.nodes.find(f => f.name === 'Jira Key');
 
             if (!jiraField) {
-              core.setFailed('Could not find a "Jira Key" field in the project.');
+              core.setFailed(`Could not find a "Jira Key" field in the project. Available fields: ${availableFields.join(', ')}`);
               return;
             }
 
