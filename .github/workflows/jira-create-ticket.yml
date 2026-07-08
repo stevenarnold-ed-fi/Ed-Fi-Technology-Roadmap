@@ -187,12 +187,13 @@ jobs:
         uses: actions/github-script@v7
         env:
           PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+          PROJECT_OWNER:  ${{ vars.PROJECT_OWNER }}
         with:
           script: |
             const projectNumber = parseInt(process.env.PROJECT_NUMBER);
+            const projectOwner  = process.env.PROJECT_OWNER;
             const jiraKey       = '${{ steps.create_ticket.outputs.jira_key }}';
             const issueNodeId   = context.payload.issue.node_id;
-            const owner         = context.repo.owner;
 
             // 1. Find the project — try organization first, fall back to user account
             let projectV2;
@@ -210,7 +211,7 @@ jobs:
                     }
                   }
                 }
-              `, { owner, number: projectNumber });
+              `, { owner: projectOwner, number: projectNumber });
               projectV2 = orgResult.organization.projectV2;
             } catch {
               const userResult = await github.graphql(`
@@ -226,7 +227,7 @@ jobs:
                     }
                   }
                 }
-              `, { owner, number: projectNumber });
+              `, { owner: projectOwner, number: projectNumber });
               projectV2 = userResult.user.projectV2;
             }
 
