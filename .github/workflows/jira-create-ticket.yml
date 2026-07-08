@@ -192,28 +192,45 @@ jobs:
             const projectNumber = parseInt(process.env.PROJECT_NUMBER);
             const jiraKey       = '${{ steps.create_ticket.outputs.jira_key }}';
             const issueNodeId   = context.payload.issue.node_id;
+            const owner         = context.repo.owner;
 
-            // 1. Find the project and the "Jira Key" field ID
-            const projectQuery = await github.graphql(`
-              query($owner: String!, $number: Int!) {
-                organization(login: $owner) {
-                  projectV2(number: $number) {
-                    id
-                    fields(first: 50) {
-                      nodes {
-                        ... on ProjectV2Field {
-                          id
-                          name
+            // 1. Find the project — try organization first, fall back to user account
+            let projectV2;
+            try {
+              const orgResult = await github.graphql(`
+                query($owner: String!, $number: Int!) {
+                  organization(login: $owner) {
+                    projectV2(number: $number) {
+                      id
+                      fields(first: 50) {
+                        nodes {
+                          ... on ProjectV2Field { id name }
                         }
                       }
                     }
                   }
                 }
-              }
-            `, { owner: context.repo.owner, number: projectNumber });
+              `, { owner, number: projectNumber });
+              projectV2 = orgResult.organization.projectV2;
+            } catch {
+              const userResult = await github.graphql(`
+                query($owner: String!, $number: Int!) {
+                  user(login: $owner) {
+                    projectV2(number: $number) {
+                      id
+                      fields(first: 50) {
+                        nodes {
+                          ... on ProjectV2Field { id name }
+                        }
+                      }
+                    }
+                  }
+                }
+              `, { owner, number: projectNumber });
+              projectV2 = userResult.user.projectV2;
+            }
 
-            const project   = projectQuery.organization.projectV2;
-            const jiraField = project.fields.nodes.find(f => f.name === 'Jira Key');
+            const jiraField = projectV2.fields.nodes.find(f => f.name === 'Jira Key');
 
             if (!jiraField) {
               core.setFailed('Could not find a "Jira Key" field in the project.');
@@ -227,7 +244,7 @@ jobs:
                   item { id }
                 }
               }
-            `, { projectId: project.id, contentId: issueNodeId });
+            `, { projectId: projectV2.id, contentId: issueNodeId });
 
             const itemId = addResult.addProjectV2ItemById.item.id;
 
@@ -243,7 +260,7 @@ jobs:
                   projectV2Item { id }
                 }
               }
-            `, { projectId: project.id, itemId, fieldId: jiraField.id, value: jiraKey });
+            `, { projectId: projectV2.id, itemId, fieldId: jiraField.id, value: jiraKey });
 
             console.log(`✅ Set "Jira Key" field to ${jiraKey}`);
 
