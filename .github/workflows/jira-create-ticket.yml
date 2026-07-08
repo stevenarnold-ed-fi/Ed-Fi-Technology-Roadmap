@@ -96,60 +96,60 @@ jobs:
           echo "sprint=$SPRINT"            >> "$GITHUB_OUTPUT"
           echo "✅ Resolved → project: $PROJECT, type: ${TYPE:-Story}, assignee: ${ASSIGNEE:-(none)}, sprint: ${SPRINT:-(none)}"
 
-    #   - name: Create Jira Ticket
-    #     if: steps.trigger_check.outputs.matched == 'true'
-    #     id: create_ticket
-    #     env:
-    #       JIRA_BASE_URL:    ${{ vars.JIRA_BASE_URL }}
-    #       JIRA_PROJECT_KEY: ${{ steps.jira_meta.outputs.project }}
-    #       JIRA_ISSUE_TYPE:  ${{ steps.jira_meta.outputs.issue_type }}
-    #       JIRA_ASSIGNEE_ID: ${{ steps.jira_meta.outputs.assignee }}
-    #       JIRA_SPRINT_ID:   ${{ steps.jira_meta.outputs.sprint }}
-    #       JIRA_USER_EMAIL:  ${{ secrets.JIRA_USER_EMAIL }}
-    #       JIRA_API_TOKEN:   ${{ secrets.JIRA_API_TOKEN }}
-    #       ISSUE_TITLE:      ${{ github.event.issue.title }}
-    #       ISSUE_URL:        ${{ github.event.issue.html_url }}
-    #       ISSUE_BODY:       ${{ github.event.issue.body }}
-    #       ISSUE_NUMBER:     ${{ github.event.issue.number }}
-    #       REPO_NAME:        ${{ github.repository }}
-    #     run: |
-    #       DESCRIPTION="GitHub Issue: ${ISSUE_URL}\n\nRepository: ${REPO_NAME}\nIssue #${ISSUE_NUMBER}\n\n---\n\n${ISSUE_BODY}"
+      - name: Create Jira Ticket
+        if: steps.trigger_check.outputs.matched == 'true'
+        id: create_ticket
+        env:
+          JIRA_BASE_URL:    ${{ vars.JIRA_BASE_URL }}
+          JIRA_PROJECT_KEY: ${{ steps.jira_meta.outputs.project }}
+          JIRA_ISSUE_TYPE:  ${{ steps.jira_meta.outputs.issue_type }}
+          JIRA_ASSIGNEE_ID: ${{ steps.jira_meta.outputs.assignee }}
+          JIRA_SPRINT_ID:   ${{ steps.jira_meta.outputs.sprint }}
+          JIRA_USER_EMAIL:  ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN:   ${{ secrets.JIRA_API_TOKEN }}
+          ISSUE_TITLE:      ${{ github.event.issue.title }}
+          ISSUE_URL:        ${{ github.event.issue.html_url }}
+          ISSUE_BODY:       ${{ github.event.issue.body }}
+          ISSUE_NUMBER:     ${{ github.event.issue.number }}
+          REPO_NAME:        ${{ github.repository }}
+        run: |
+          DESCRIPTION="GitHub Issue: ${ISSUE_URL}\n\nRepository: ${REPO_NAME}\nIssue #${ISSUE_NUMBER}\n\n---\n\n${ISSUE_BODY}"
 
-    #       PAYLOAD=$(jq -n \
-    #         --arg summary     "${ISSUE_TITLE}" \
-    #         --arg project     "${JIRA_PROJECT_KEY}" \
-    #         --arg issuetype   "${JIRA_ISSUE_TYPE}" \
-    #         --arg description "${DESCRIPTION}" \
-    #         --arg assignee    "${JIRA_ASSIGNEE_ID}" \
-    #         --arg sprint      "${JIRA_SPRINT_ID}" \
-    #         '{
-    #           fields: {
-    #             project:     { key: $project },
-    #             summary:     $summary,
-    #             issuetype:   { name: $issuetype },
-    #             description: {
-    #               type: "doc", version: 1,
-    #               content: [{ type: "paragraph",
-    #                 content: [{ type: "text", text: $description }]
-    #               }]
-    #             }
-    #           }
-    #         }
-    #         | if $assignee != "" then .fields.assignee = { accountId: $assignee } else . end
-    #         | if $sprint   != "" then .fields.customfield_10020 = ($sprint | tonumber) else . end
-    #         ')
+          PAYLOAD=$(jq -n \
+            --arg summary     "${ISSUE_TITLE}" \
+            --arg project     "${JIRA_PROJECT_KEY}" \
+            --arg issuetype   "${JIRA_ISSUE_TYPE}" \
+            --arg description "${DESCRIPTION}" \
+            --arg assignee    "${JIRA_ASSIGNEE_ID}" \
+            --arg sprint      "${JIRA_SPRINT_ID}" \
+            '{
+              fields: {
+                project:     { key: $project },
+                summary:     $summary,
+                issuetype:   { name: $issuetype },
+                description: {
+                  type: "doc", version: 1,
+                  content: [{ type: "paragraph",
+                    content: [{ type: "text", text: $description }]
+                  }]
+                }
+              }
+            }
+            | if $assignee != "" then .fields.assignee = { accountId: $assignee } else . end
+            | if $sprint   != "" then .fields.customfield_10020 = ($sprint | tonumber) else . end
+            ')
 
-    #       RESPONSE=$(curl --silent --show-error --fail \
-    #         --request POST \
-    #         --url "${JIRA_BASE_URL}/rest/api/3/issue" \
-    #         --user "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
-    #         --header "Accept: application/json" \
-    #         --header "Content-Type: application/json" \
-    #         --data "$PAYLOAD")
+          RESPONSE=$(curl --silent --show-error --fail \
+            --request POST \
+            --url "${JIRA_BASE_URL}/rest/api/3/issue" \
+            --user "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+            --header "Accept: application/json" \
+            --header "Content-Type: application/json" \
+            --data "$PAYLOAD")
 
-    #       JIRA_KEY=$(echo "$RESPONSE" | jq -r '.key')
-    #       echo "jira_key=$JIRA_KEY" >> "$GITHUB_OUTPUT"
-    #       echo "✅ Created Jira ticket: $JIRA_KEY"
+          JIRA_KEY=$(echo "$RESPONSE" | jq -r '.key')
+          echo "jira_key=$JIRA_KEY" >> "$GITHUB_OUTPUT"
+          echo "✅ Created Jira ticket: $JIRA_KEY"
 
     #   - name: Add GitHub issue link to Jira ticket
     #     if: steps.trigger_check.outputs.matched == 'true'
