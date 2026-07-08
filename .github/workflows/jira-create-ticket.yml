@@ -77,15 +77,12 @@ jobs:
             .[] | .name as $label | $map[$label] // empty
           ' | head -1)
 
-          # Assignee and sprint are scoped to the resolved project config.
-          # Only looked up if the nested map exists in the config entry.
-          ASSIGNEE=$(echo "$LABELS" | jq -r \
-            --argjson config "$PROJECT_CONFIG" \
-            --arg label "$PROJECT_LABEL" '
-            ($config[$label].assignees // {}) as $map |
-            .[] | .name as $l | $map[$l] // empty
-          ' | head -1)
+          # Assignee is set directly from project config if present
+          ASSIGNEE=$(echo "$PROJECT_CONFIG" | jq -r --arg label "$PROJECT_LABEL" '
+            .[$label].assignee // empty
+          ')
 
+          # Sprint is looked up by label if sprints map is present in config
           SPRINT=$(echo "$LABELS" | jq -r \
             --argjson config "$PROJECT_CONFIG" \
             --arg label "$PROJECT_LABEL" '
