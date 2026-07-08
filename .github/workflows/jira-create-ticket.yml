@@ -99,156 +99,156 @@ jobs:
           echo "sprint=$SPRINT"            >> "$GITHUB_OUTPUT"
           echo "✅ Resolved → project: $PROJECT, type: ${TYPE:-Story}, assignee: ${ASSIGNEE:-(none)}, sprint: ${SPRINT:-(none)}"
 
-      - name: Create Jira Ticket
-        if: steps.trigger_check.outputs.matched == 'true'
-        id: create_ticket
-        env:
-          JIRA_BASE_URL:    ${{ vars.JIRA_BASE_URL }}
-          JIRA_PROJECT_KEY: ${{ steps.jira_meta.outputs.project }}
-          JIRA_ISSUE_TYPE:  ${{ steps.jira_meta.outputs.issue_type }}
-          JIRA_ASSIGNEE_ID: ${{ steps.jira_meta.outputs.assignee }}
-          JIRA_SPRINT_ID:   ${{ steps.jira_meta.outputs.sprint }}
-          JIRA_USER_EMAIL:  ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN:   ${{ secrets.JIRA_API_TOKEN }}
-          ISSUE_TITLE:      ${{ github.event.issue.title }}
-          ISSUE_URL:        ${{ github.event.issue.html_url }}
-          ISSUE_BODY:       ${{ github.event.issue.body }}
-          ISSUE_NUMBER:     ${{ github.event.issue.number }}
-          REPO_NAME:        ${{ github.repository }}
-        run: |
-          DESCRIPTION="GitHub Issue: ${ISSUE_URL}\n\nRepository: ${REPO_NAME}\nIssue #${ISSUE_NUMBER}\n\n---\n\n${ISSUE_BODY}"
+    #   - name: Create Jira Ticket
+    #     if: steps.trigger_check.outputs.matched == 'true'
+    #     id: create_ticket
+    #     env:
+    #       JIRA_BASE_URL:    ${{ vars.JIRA_BASE_URL }}
+    #       JIRA_PROJECT_KEY: ${{ steps.jira_meta.outputs.project }}
+    #       JIRA_ISSUE_TYPE:  ${{ steps.jira_meta.outputs.issue_type }}
+    #       JIRA_ASSIGNEE_ID: ${{ steps.jira_meta.outputs.assignee }}
+    #       JIRA_SPRINT_ID:   ${{ steps.jira_meta.outputs.sprint }}
+    #       JIRA_USER_EMAIL:  ${{ secrets.JIRA_USER_EMAIL }}
+    #       JIRA_API_TOKEN:   ${{ secrets.JIRA_API_TOKEN }}
+    #       ISSUE_TITLE:      ${{ github.event.issue.title }}
+    #       ISSUE_URL:        ${{ github.event.issue.html_url }}
+    #       ISSUE_BODY:       ${{ github.event.issue.body }}
+    #       ISSUE_NUMBER:     ${{ github.event.issue.number }}
+    #       REPO_NAME:        ${{ github.repository }}
+    #     run: |
+    #       DESCRIPTION="GitHub Issue: ${ISSUE_URL}\n\nRepository: ${REPO_NAME}\nIssue #${ISSUE_NUMBER}\n\n---\n\n${ISSUE_BODY}"
 
-          PAYLOAD=$(jq -n \
-            --arg summary     "${ISSUE_TITLE}" \
-            --arg project     "${JIRA_PROJECT_KEY}" \
-            --arg issuetype   "${JIRA_ISSUE_TYPE}" \
-            --arg description "${DESCRIPTION}" \
-            --arg assignee    "${JIRA_ASSIGNEE_ID}" \
-            --arg sprint      "${JIRA_SPRINT_ID}" \
-            '{
-              fields: {
-                project:     { key: $project },
-                summary:     $summary,
-                issuetype:   { name: $issuetype },
-                description: {
-                  type: "doc", version: 1,
-                  content: [{ type: "paragraph",
-                    content: [{ type: "text", text: $description }]
-                  }]
-                }
-              }
-            }
-            | if $assignee != "" then .fields.assignee = { accountId: $assignee } else . end
-            | if $sprint   != "" then .fields.customfield_10020 = ($sprint | tonumber) else . end
-            ')
+    #       PAYLOAD=$(jq -n \
+    #         --arg summary     "${ISSUE_TITLE}" \
+    #         --arg project     "${JIRA_PROJECT_KEY}" \
+    #         --arg issuetype   "${JIRA_ISSUE_TYPE}" \
+    #         --arg description "${DESCRIPTION}" \
+    #         --arg assignee    "${JIRA_ASSIGNEE_ID}" \
+    #         --arg sprint      "${JIRA_SPRINT_ID}" \
+    #         '{
+    #           fields: {
+    #             project:     { key: $project },
+    #             summary:     $summary,
+    #             issuetype:   { name: $issuetype },
+    #             description: {
+    #               type: "doc", version: 1,
+    #               content: [{ type: "paragraph",
+    #                 content: [{ type: "text", text: $description }]
+    #               }]
+    #             }
+    #           }
+    #         }
+    #         | if $assignee != "" then .fields.assignee = { accountId: $assignee } else . end
+    #         | if $sprint   != "" then .fields.customfield_10020 = ($sprint | tonumber) else . end
+    #         ')
 
-          RESPONSE=$(curl --silent --show-error --fail \
-            --request POST \
-            --url "${JIRA_BASE_URL}/rest/api/3/issue" \
-            --user "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
-            --header "Accept: application/json" \
-            --header "Content-Type: application/json" \
-            --data "$PAYLOAD")
+    #       RESPONSE=$(curl --silent --show-error --fail \
+    #         --request POST \
+    #         --url "${JIRA_BASE_URL}/rest/api/3/issue" \
+    #         --user "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+    #         --header "Accept: application/json" \
+    #         --header "Content-Type: application/json" \
+    #         --data "$PAYLOAD")
 
-          JIRA_KEY=$(echo "$RESPONSE" | jq -r '.key')
-          echo "jira_key=$JIRA_KEY" >> "$GITHUB_OUTPUT"
-          echo "✅ Created Jira ticket: $JIRA_KEY"
+    #       JIRA_KEY=$(echo "$RESPONSE" | jq -r '.key')
+    #       echo "jira_key=$JIRA_KEY" >> "$GITHUB_OUTPUT"
+    #       echo "✅ Created Jira ticket: $JIRA_KEY"
 
-      - name: Add GitHub issue link to Jira ticket
-        if: steps.trigger_check.outputs.matched == 'true'
-        env:
-          JIRA_BASE_URL:   ${{ vars.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN:  ${{ secrets.JIRA_API_TOKEN }}
-          JIRA_KEY:        ${{ steps.create_ticket.outputs.jira_key }}
-          ISSUE_URL:       ${{ github.event.issue.html_url }}
-          ISSUE_TITLE:     ${{ github.event.issue.title }}
-          ISSUE_NUMBER:    ${{ github.event.issue.number }}
-        run: |
-          curl --silent --show-error --fail \
-            --request POST \
-            --url "${JIRA_BASE_URL}/rest/api/3/issue/${JIRA_KEY}/remotelink" \
-            --user "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
-            --header "Accept: application/json" \
-            --header "Content-Type: application/json" \
-            --data "$(jq -n \
-              --arg url   "${ISSUE_URL}" \
-              --arg title "GitHub Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}" \
-              '{
-                object: {
-                  url:   $url,
-                  title: $title,
-                  icon: {
-                    url16x16: "https://github.com/favicon.ico",
-                    title:    "GitHub"
-                  }
-                }
-              }'
-            )"
-          echo "✅ Remote link added to Jira ticket"
+    #   - name: Add GitHub issue link to Jira ticket
+    #     if: steps.trigger_check.outputs.matched == 'true'
+    #     env:
+    #       JIRA_BASE_URL:   ${{ vars.JIRA_BASE_URL }}
+    #       JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+    #       JIRA_API_TOKEN:  ${{ secrets.JIRA_API_TOKEN }}
+    #       JIRA_KEY:        ${{ steps.create_ticket.outputs.jira_key }}
+    #       ISSUE_URL:       ${{ github.event.issue.html_url }}
+    #       ISSUE_TITLE:     ${{ github.event.issue.title }}
+    #       ISSUE_NUMBER:    ${{ github.event.issue.number }}
+    #     run: |
+    #       curl --silent --show-error --fail \
+    #         --request POST \
+    #         --url "${JIRA_BASE_URL}/rest/api/3/issue/${JIRA_KEY}/remotelink" \
+    #         --user "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+    #         --header "Accept: application/json" \
+    #         --header "Content-Type: application/json" \
+    #         --data "$(jq -n \
+    #           --arg url   "${ISSUE_URL}" \
+    #           --arg title "GitHub Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}" \
+    #           '{
+    #             object: {
+    #               url:   $url,
+    #               title: $title,
+    #               icon: {
+    #                 url16x16: "https://github.com/favicon.ico",
+    #                 title:    "GitHub"
+    #               }
+    #             }
+    #           }'
+    #         )"
+    #       echo "✅ Remote link added to Jira ticket"
 
-      - name: Write Jira key to GitHub Project "Jira Key" field
-        if: steps.trigger_check.outputs.matched == 'true'
-        uses: actions/github-script@v7
-        env:
-          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
-        with:
-          script: |
-            const projectNumber = parseInt(process.env.PROJECT_NUMBER);
-            const jiraKey       = '${{ steps.create_ticket.outputs.jira_key }}';
-            const issueNodeId   = context.payload.issue.node_id;
+    #   - name: Write Jira key to GitHub Project "Jira Key" field
+    #     if: steps.trigger_check.outputs.matched == 'true'
+    #     uses: actions/github-script@v7
+    #     env:
+    #       PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+    #     with:
+    #       script: |
+    #         const projectNumber = parseInt(process.env.PROJECT_NUMBER);
+    #         const jiraKey       = '${{ steps.create_ticket.outputs.jira_key }}';
+    #         const issueNodeId   = context.payload.issue.node_id;
 
-            // 1. Find the project and the "Jira Key" field ID
-            const projectQuery = await github.graphql(`
-              query($owner: String!, $number: Int!) {
-                organization(login: $owner) {
-                  projectV2(number: $number) {
-                    id
-                    fields(first: 50) {
-                      nodes {
-                        ... on ProjectV2Field {
-                          id
-                          name
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            `, { owner: context.repo.owner, number: projectNumber });
+    #         // 1. Find the project and the "Jira Key" field ID
+    #         const projectQuery = await github.graphql(`
+    #           query($owner: String!, $number: Int!) {
+    #             organization(login: $owner) {
+    #               projectV2(number: $number) {
+    #                 id
+    #                 fields(first: 50) {
+    #                   nodes {
+    #                     ... on ProjectV2Field {
+    #                       id
+    #                       name
+    #                     }
+    #                   }
+    #                 }
+    #               }
+    #             }
+    #           }
+    #         `, { owner: context.repo.owner, number: projectNumber });
 
-            const project   = projectQuery.organization.projectV2;
-            const jiraField = project.fields.nodes.find(f => f.name === 'Jira Key');
+    #         const project   = projectQuery.organization.projectV2;
+    #         const jiraField = project.fields.nodes.find(f => f.name === 'Jira Key');
 
-            if (!jiraField) {
-              core.setFailed('Could not find a "Jira Key" field in the project.');
-              return;
-            }
+    #         if (!jiraField) {
+    #           core.setFailed('Could not find a "Jira Key" field in the project.');
+    #           return;
+    #         }
 
-            // 2. Add the issue to the project (idempotent — returns existing item if already there)
-            const addResult = await github.graphql(`
-              mutation($projectId: ID!, $contentId: ID!) {
-                addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
-                  item { id }
-                }
-              }
-            `, { projectId: project.id, contentId: issueNodeId });
+    #         // 2. Add the issue to the project (idempotent — returns existing item if already there)
+    #         const addResult = await github.graphql(`
+    #           mutation($projectId: ID!, $contentId: ID!) {
+    #             addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+    #               item { id }
+    #             }
+    #           }
+    #         `, { projectId: project.id, contentId: issueNodeId });
 
-            const itemId = addResult.addProjectV2ItemById.item.id;
+    #         const itemId = addResult.addProjectV2ItemById.item.id;
 
-            // 3. Set the "Jira Key" field value
-            await github.graphql(`
-              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId:  $projectId,
-                  itemId:     $itemId,
-                  fieldId:    $fieldId,
-                  value:      { text: $value }
-                }) {
-                  projectV2Item { id }
-                }
-              }
-            `, { projectId: project.id, itemId, fieldId: jiraField.id, value: jiraKey });
+    #         // 3. Set the "Jira Key" field value
+    #         await github.graphql(`
+    #           mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: String!) {
+    #             updateProjectV2ItemFieldValue(input: {
+    #               projectId:  $projectId,
+    #               itemId:     $itemId,
+    #               fieldId:    $fieldId,
+    #               value:      { text: $value }
+    #             }) {
+    #               projectV2Item { id }
+    #             }
+    #           }
+    #         `, { projectId: project.id, itemId, fieldId: jiraField.id, value: jiraKey });
 
-            console.log(`✅ Set "Jira Key" field to ${jiraKey}`);
+    #         console.log(`✅ Set "Jira Key" field to ${jiraKey}`);
 
